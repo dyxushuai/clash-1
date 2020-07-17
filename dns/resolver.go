@@ -96,13 +96,15 @@ func (r *Resolver) Exchange(m *D.Msg) (msg *D.Msg, err error) {
 	}
 
 	q := m.Question[0]
-	cache, expireTime, hit := r.lruCache.GetWithExpire(q.String())
+	cache, expireTime, expireOnce, hit := r.lruCache.GetWithExpire(q.String())
 	if hit {
 		now := time.Now()
 		msg = cache.(*D.Msg).Copy()
 		if expireTime.Before(now) {
 			setMsgTTL(msg, uint32(1)) // Continue fetch
-			go r.exchangeWithoutCache(m)
+			expireOnce(func() {
+				go r.exchangeWithoutCache(m)
+			})
 		} else {
 			setMsgTTL(msg, uint32(expireTime.Sub(time.Now()).Seconds()))
 		}
@@ -115,11 +117,16 @@ func (r *Resolver) Exchange(m *D.Msg) (msg *D.Msg, err error) {
 func (r *Resolver) exchangeWithoutCache(m *D.Msg) (msg *D.Msg, err error) {
 	q := m.Question[0]
 
-	defer func() {
-		if msg == nil {
-			return
+	ret, err, _ := r.group.Do(q.String(), func() (interface{}, error) {
+		isIPReq := isIPRequest(q)
+		if isIPReq {
+			return r.fallbackExchange(m)
 		}
 
+		msg, err := r.batchExchange(r.main, m)
+		if err != nil {
+			return nil, err
+		}
 		putMsgToCache(r.lruCache, q.String(), msg)
 		if r.mapping || r.fakeip {
 			ips := r.msgToIP(msg)
@@ -127,22 +134,11 @@ func (r *Resolver) exchangeWithoutCache(m *D.Msg) (msg *D.Msg, err error) {
 				putMsgToCache(r.lruCache, ip.String(), msg)
 			}
 		}
-	}()
-
-	ret, err, shared := r.group.Do(q.String(), func() (interface{}, error) {
-		isIPReq := isIPRequest(q)
-		if isIPReq {
-			return r.fallbackExchange(m)
-		}
-
-		return r.batchExchange(r.main, m)
+		return msg, nil
 	})
 
 	if err == nil {
-		msg = ret.(*D.Msg)
-		if shared {
-			msg = msg.Copy()
-		}
+		msg = ret.(*D.Msg).Copy()
 	}
 
 	return
