@@ -96,13 +96,14 @@ func (r *Resolver) Exchange(m *D.Msg) (msg *D.Msg, err error) {
 	}
 
 	q := m.Question[0]
-	cache, expireTime, expireOnce, hit := r.lruCache.GetWithExpire(q.String())
+	cache, expireTime, hit := r.lruCache.GetWithExpire(q.String())
 	if hit {
 		now := time.Now()
-		msg = cache.(*D.Msg).Copy()
+		eoMsg := cache.(*expiredOnceMsg)
+		msg = eoMsg.Copy()
 		if expireTime.Before(now) {
 			setMsgTTL(msg, uint32(1)) // Continue fetch
-			expireOnce(func() {
+			eoMsg.once.Do(func() {
 				go r.exchangeWithoutCache(m)
 			})
 		} else {

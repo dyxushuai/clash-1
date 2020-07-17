@@ -94,13 +94,13 @@ func (c *LruCache) Get(key interface{}) (interface{}, bool) {
 // a time.Time Give expected expires,
 // and a bool set to true if the key was found.
 // This method will NOT check the maxAge of element and will NOT update the expires.
-func (c *LruCache) GetWithExpire(key interface{}) (interface{}, time.Time, func(func()), bool) {
+func (c *LruCache) GetWithExpire(key interface{}) (interface{}, time.Time, bool) {
 	entry := c.get(key)
 	if entry == nil {
-		return nil, time.Time{}, nil, false
+		return nil, time.Time{}, false
 	}
 
-	return entry.value, time.Unix(entry.expires, 0), entry.once.Do, true
+	return entry.value, time.Unix(entry.expires, 0), true
 }
 
 // Exist returns if key exist in cache but not put item to the head of linked list
@@ -203,5 +203,4 @@ type entry struct {
 	key     interface{}
 	value   interface{}
 	expires int64
-	once    sync.Once
 }
