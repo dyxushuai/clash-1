@@ -145,7 +145,7 @@ func TestSetWithExpire(t *testing.T) {
 	c.SetWithExpire(1, 2, tenSecBefore)
 
 	// res is expected not to exist, and expires should be empty time.Time
-	res, expires, exist := c.GetWithExpire(1)
+	res, expires, _, exist := c.GetWithExpire(1)
 	assert.Equal(t, nil, res)
 	assert.Equal(t, time.Time{}, expires)
 	assert.Equal(t, false, exist)
@@ -159,7 +159,7 @@ func TestStale(t *testing.T) {
 	tenSecBefore := time.Unix(now-10, 0)
 	c.SetWithExpire(1, 2, tenSecBefore)
 
-	res, expires, exist := c.GetWithExpire(1)
+	res, expires, _, exist := c.GetWithExpire(1)
 	assert.Equal(t, 2, res)
 	assert.Equal(t, tenSecBefore, expires)
 	assert.Equal(t, true, exist)
