@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net"
-	"sync"
 	"time"
 
 	"github.com/Dreamacro/clash/common/cache"
@@ -80,11 +79,6 @@ func (e EnhancedMode) String() string {
 	}
 }
 
-type expiredOnceMsg struct {
-	*D.Msg
-	once sync.Once
-}
-
 func putMsgToCache(c *cache.LruCache, key string, msg *D.Msg) {
 	var ttl uint32
 	switch {
@@ -99,7 +93,7 @@ func putMsgToCache(c *cache.LruCache, key string, msg *D.Msg) {
 		return
 	}
 
-	c.SetWithExpire(key, &expiredOnceMsg{Msg: msg.Copy()}, time.Now().Add(time.Second*time.Duration(ttl)))
+	c.SetWithExpire(key, msg.Copy(), time.Now().Add(time.Second*time.Duration(ttl)))
 }
 
 func setMsgTTL(msg *D.Msg, ttl uint32) {

@@ -99,13 +99,10 @@ func (r *Resolver) Exchange(m *D.Msg) (msg *D.Msg, err error) {
 	cache, expireTime, hit := r.lruCache.GetWithExpire(q.String())
 	if hit {
 		now := time.Now()
-		eoMsg := cache.(*expiredOnceMsg)
-		msg = eoMsg.Copy()
+		msg = cache.(*D.Msg).Copy()
 		if expireTime.Before(now) {
 			setMsgTTL(msg, uint32(1)) // Continue fetch
-			eoMsg.once.Do(func() {
-				go r.exchangeWithoutCache(m)
-			})
+			go r.exchangeWithoutCache(m)
 		} else {
 			setMsgTTL(msg, uint32(expireTime.Sub(time.Now()).Seconds()))
 		}
